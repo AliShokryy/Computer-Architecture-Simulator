@@ -117,6 +117,100 @@ int registers [33];
 int clockCycleCount;
 static int instructionCount = 0;
 
+
+
+
+
+struct ALU_out{
+    int result;
+    int zeroFlag;
+};
+
+// struct decode_out{
+    
+// }
+
+struct IF_ID{
+    int instruction;
+    unsigned int atu;
+
+    unsigned int instruction_id;
+
+};
+
+struct ID_EX{
+    unsigned int opcode; 
+    unsigned int R1; 
+    unsigned int R2;
+    unsigned int R3;
+    unsigned int shamt;
+    int immediate;
+    unsigned int address;
+
+    unsigned int atu;
+
+    unsigned int instruction_id;
+
+};
+
+struct EX_MEM{
+    unsigned int register_address;
+    int register_data;
+    int registerWrite;
+
+    unsigned int memory_address;
+    int memory_data;
+    int memoryWrite;
+
+    unsigned int atu;
+
+    unsigned int instruction_id;
+
+};
+
+struct MEM_WB{
+    unsigned int register_address;
+    int register_data;
+    int registerWrite;
+
+    unsigned int atu;
+
+    unsigned int instruction_id;
+
+};
+
+struct IF_ID if_id_pipeline;
+
+
+struct ID_EX id_ex_pipeline;
+
+
+struct EX_MEM ex_mem_pipeline;
+
+struct MEM_WB mem_wb_pipeline;
+
+
+
+// struct I_Instruction{
+//     int opcode : 4;
+//     int r1 : 5;
+//     int r2 : 5;
+//     int immediate : 18;
+// };
+
+// struct J_Instruction{
+//     int opcode : 4;
+//     int address : 28;
+// };
+
+
+// struct R_Instruction{
+//     int opcode : 4;
+//     int r1 : 5;
+//     int r2 : 5;
+//     int r3 : 5;
+//     int shamt : 13;
+// };
 void init(){
     int num_lines;
     char **lines = read_lines("input.txt", &num_lines);
@@ -194,21 +288,21 @@ void init(){
             // char * reg3 = words[3];
             int regNum1 = atoi(reg1);
             int regNum2 = atoi(reg2);
-            printf("RegNum1 --> %i , RegNum2 --> %i  ,",regNum1 , regNum2);
+            // printf("RegNum1 --> %i , RegNum2 --> %i  ,",regNum1 , regNum2);
             if (strcmp(instructionName,"ADD") == 0 ||strcmp(instructionName,"SUB") == 0){
                 char * reg3 = strchr(words[3],'R');
                 if(reg3 != NULL){
                     memmove(reg3,reg3+1,strlen(reg3));
                 }
                 int regNum3 = atoi(reg3);
-                printf(" RegNum3 --> %i \n",regNum3);
+                // printf(" RegNum3 --> %i \n",regNum3);
                 instruction = instruction | ((regNum1 << 23) & 0b00001111100000000000000000000000)  
                                           | ((regNum2 << 18) & 0b00000000011111000000000000000000)
                                           | ((regNum3 << 13) & 0b00000000000000111110000000000000); 
             }
             else if (strcmp(instructionName,"SRL") == 0 || strcmp(instructionName,"SLL") == 0){
                 int shamt = atoi(words[3]);
-                printf(" Shamt --> %i \n" , shamt);
+                // printf(" Shamt --> %i \n" , shamt);
                 instruction = instruction | ((regNum1 << 23) & 0b00001111100000000000000000000000)  
                                           | ((regNum2 << 18) & 0b00000000011111000000000000000000)
                                           | ((shamt) & 0b00000000000000000001111111111111); 
@@ -228,9 +322,9 @@ void init(){
             char * immediate = words[3];
             int regNum1 = atoi(reg1);
             int regNum2 = atoi(reg2);
-            printf("RegNum1 --> %i , RegNum2 --> %i  ,",regNum1 , regNum2);
+            // printf("RegNum1 --> %i , RegNum2 --> %i  ,",regNum1 , regNum2);
             int imm = atoi(immediate);
-            printf(" Immediate --> %i \n" , imm);
+            // printf(" Immediate --> %i \n" , imm);
             instruction = instruction | ((regNum1 << 23) & 0b00001111100000000000000000000000)  
                                       | ((regNum2 << 18) & 0b00000000011111000000000000000000)
                                       | (imm & 0b00000000000000111111111111111111); 
@@ -238,7 +332,7 @@ void init(){
         else if (rORiORj == 2){
             char * address = words[1];
             int addr = atoi(address);
-            printf("Address --> %i \n" , addr);
+            // printf("Address --> %i \n" , addr);
             instruction = instruction | (addr);
              }
         
@@ -261,112 +355,68 @@ void init(){
     }
     free(lines);
 
-    return 0;
+    
     registers[0] = 0;
-    clockCycleCount = 0;
+    clockCycleCount = 1;
+    if_id_pipeline.instruction_id = 0;
+    id_ex_pipeline.instruction_id = 0;
+    ex_mem_pipeline.instruction_id = 0;
+    mem_wb_pipeline.instruction_id = 0;
+    if_id_pipeline.atu = 0;
+    id_ex_pipeline.atu = 0;
+    ex_mem_pipeline.atu = 0;
+    mem_wb_pipeline.atu = 0;
 
+    
 }
 
-
-
-struct ALU_out{
-    int result;
-    int zeroFlag;
-};
-
-// struct I_Instruction{
-//     int opcode : 4;
-//     int r1 : 5;
-//     int r2 : 5;
-//     int immediate : 18;
-// };
-
-// struct J_Instruction{
-//     int opcode : 4;
-//     int address : 28;
-// };
-
-
-// struct R_Instruction{
-//     int opcode : 4;
-//     int r1 : 5;
-//     int r2 : 5;
-//     int r3 : 5;
-//     int shamt : 13;
-// };
-void add(int r1 , int r2 , int r3){
-    if(r1 == 0){
-        return;
+void add(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            if (r3 == 0){
-                registers[r1] = 0;
-            }
-            else{
-                registers[r1] = 0 + registers[r3];
-            }
-        }
-        else{
-            if(r3 == 0){
-                registers[r1] = registers[r2] + 0;
-            }
-            else{
-                registers[r1] = registers[r2] + registers[r3];
-            }
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] + registers[id_ex_pipeline.R3];
+
     }
 }
 
-void sub(int r1 , int r2 , int r3){
-    if(r1 == 0){
-        return;
+void sub(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            if (r3 == 0){
-                registers[r1] = 0;
-            }
-            else{
-                registers[r1] = 0 - registers[r3];
-            }
-        }
-        else{
-            if(r3 == 0){
-                registers[r1] = registers[r2] - 0;
-            }
-            else{
-                registers[r1] = registers[r2] - registers[r3];
-            }
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] - registers[id_ex_pipeline.R3];
+
     }
 }
 
-void mulI(int r1 , int r2 , int imm){
-    if(r1 == 0){
-        return;
+void mulI(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 * imm;
-        }
-        else{
-            registers[r1] = registers[r2] * imm;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] * id_ex_pipeline.immediate;
     }
 }
 
-void addI(int r1 , int r2 , int imm){
-    if(r1 == 0){
-        return;
+void addI(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 + imm;
-        }
-        else{
-            registers[r1] = registers[r2] + imm;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] + id_ex_pipeline.immediate;
     }
 }
 
@@ -376,35 +426,31 @@ void bne(int r1 , int r2 , int imm){
     }
 }
 
-void ANDI(int r1 , int r2 , int imm){
-    if(r1 == 0){
-        return;
+void ANDI(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 & imm;
-        }
-        else{
-            registers[r1] = registers[r2] & imm;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] & id_ex_pipeline.immediate;
     }
 }
 
-void ORI(int r1 , int r2 , int imm){
-    if(r1 == 0){
-        return;
+void ORI(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 | imm;
-        }
-        else{
-            registers[r1] = registers[r2] | imm;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] | id_ex_pipeline.immediate;
     }
 }
 
-void J(int addr){
+void J(int addr){ //!TODO update it to match the new convention
     if(addr<1024){
         registers[32] = addr;
     }
@@ -413,52 +459,66 @@ void J(int addr){
     }
 }
 
-void SLL(int r1 , int r2 , unsigned int shamt){
-    if(r1 == 0){
-        return;
+void SLL(){
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 << shamt;
-        }
-        else{
-            registers[r1] = registers[r2] << shamt;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] << id_ex_pipeline.shamt;
     }
 }
 
-void SRL(int r1 , int r2 , unsigned int shamt){
-    if(r1 == 0){
-        return;
+void SRL(){
+    // if(r1 == 0){
+    //     return;
+    // }
+    // else{
+    //     if(r2 == 0){
+    //         registers[r1] = 0 ;
+    //         return;
+    //     }
+    //     else{
+    //         registers[r1] = registers[r2] >> shamt;
+    //     }
+    //     int bitMsk = 0;
+    //     int i;
+    //     for(i = 0 ; i< shamt ; i++){
+    //         bitMsk = bitMsk | 1 << i;
+    //     }
+    //     registers[r1] = registers[r1] & bitMsk;
+    ex_mem_pipeline.memoryWrite = 0;
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = 0 ;
-            return;
-        }
-        else{
-            registers[r1] = registers[r2] >> shamt;
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        
+        ex_mem_pipeline.register_data = registers[id_ex_pipeline.R2] >> id_ex_pipeline.immediate;
         int bitMsk = 0;
         int i;
-        for(i = 0 ; i< shamt ; i++){
+        for(i = 0 ; i< id_ex_pipeline.shamt ; i++){
             bitMsk = bitMsk | 1 << i;
         }
-        registers[r1] = registers[r1] & bitMsk;
-
+        // int bitMsk = 2^
+        ex_mem_pipeline.register_data = ex_mem_pipeline.register_data & bitMsk;
     }
+    
 }
-void LW(unsigned int r1 , unsigned int r2 , int immediate){
-    if(r1 == 0){
-        return;
+void LW(){
+    if(id_ex_pipeline.R1 == 0){
+        ex_mem_pipeline.memoryWrite = 0;
+        ex_mem_pipeline.registerWrite = 0;
     }
     else{
-        if(r2 == 0){
-            registers[r1] = memory[immediate];
-        }
-        else{
-            registers[r1] = memory[registers[r2] + immediate];
-        }
+        ex_mem_pipeline.registerWrite = 1;
+        // ex_mem_pipeline.register_data = memory[registers[id_ex_pipeline.R2] + id_ex_pipeline.immediate];
+        ex_mem_pipeline.memory_address = registers[id_ex_pipeline.R2] + id_ex_pipeline.immediate;
+        ex_mem_pipeline.register_address = id_ex_pipeline.R1;
+        
     }
 }
 
@@ -510,88 +570,156 @@ struct ALU_out ALU(int opcode , int operandA, int operandB){
 }
 
 void instructionFetch(){
-    
-    registers[0] = memory[registers[31]];
+    if(clockCycleCount % 2 == 1){
+        int instruction = memory[registers[31]];
+        
+        // printf("Instruction %i -> %b \n" , i , registers[32]);
+        if_id_pipeline.instruction = instruction;
+        if_id_pipeline.atu = 1;
+        if_id_pipeline.instruction_id = registers[32];
+        registers[32] = registers[32] + 1;
 
-    // printf("Instruction %i -> %b \n" , i , registers[32]);
-    registers[32] = registers[32] + 1;
-    instructionDecode();
+    }
+    // instructionDecode();
 
 }
 
 void instructionDecode(){
-    
+    // instructionFetch();
+    if(if_id_pipeline.atu == 0){
+        int instruction = if_id_pipeline.instruction;
+        id_ex_pipeline.opcode = (instruction >> 28) & 0b00000000000000000000000000001111;
+        id_ex_pipeline.R1 = (instruction >> 23) & 0b00000000000000000000000000011111;
+        id_ex_pipeline.R2 = (instruction >> 18) & 0b00000000000000000000000000011111;
+        id_ex_pipeline.R3 = (instruction >> 13) & 0b00000000000000000000000000011111;
+        id_ex_pipeline.shamt = instruction & 0b00000000000000000001111111111111;
+        int immediate = instruction & 0b00000000000000111111111111111111;
+        int sign = immediate >>17;
+        if(sign == 1)id_ex_pipeline.immediate=immediate|0b11111111111111000000000000000000;
+        id_ex_pipeline.address = instruction & 0b00001111111111111111111111111111;
 
-    instructionFetch();
-    unsigned int instruction = memory[registers[32]-1];
-    unsigned int opcode = (instruction >> 28) & 0b00000000000000000000000000001111;
-    unsigned int R1 = (instruction >> 23) & 0b00000000000000000000000000011111;
-    unsigned int R2 = (instruction >> 18) & 0b00000000000000000000000000011111;
-    unsigned int R3 = (instruction >> 13) & 0b00000000000000000000000000011111;
-    unsigned int shamt = instruction & 0b00000000000000000001111111111111;
-    int immediate = instruction & 0b00000000000000111111111111111111;
-    unsigned int address = instruction & 0b00001111111111111111111111111111;
-    instructionExecute(opcode,R1,R2,R3,shamt,immediate,address);
+        id_ex_pipeline.instruction_id = if_id_pipeline.instruction_id;
+
+        id_ex_pipeline.atu = 2;
+    }
+    else{
+        if_id_pipeline.atu--;
+        printf("Instruction :  didn't execute");
+    }
+    // instructionExecute(opcode,R1,R2,R3,shamt,immediate,address);
 
 }
 
-void instructionExecute(unsigned int opcode , unsigned int R1 , unsigned int R2 , unsigned int R3 , unsigned int shamt , int immediate , unsigned int address){
-    switch(opcode) {
-        case 1:
-            add(R1,R2,R3);
-            break;
-        case 2:
-            sub(R1,R2,R3);
-            break;
-        case 3:
-            mulI(R1,R2,immediate);
-            break;
-        case 4:
-            addI(R1,R2,immediate);
-            break;
-        case 5:
-            bne(R1,R2,immediate);
-            break;
-        case 6:
-            ANDI(R1,R2,immediate);
-            break;
-        case 7:
-            ORI(R1,R2,immediate);
-            break;
-        case 8:
-            J(address);
-            break;
-        case 9:
-            SLL(R1,R2,shamt);
-            break;
-        case 10:
-            SRL(R1,R2,shamt);
-            break;
-        case 11:
-            LW(R1,R2,immediate);
-            break;
-        case 12:
-            SW(R1,R2,immediate);
-            break;    
+void instructionExecute(){
+    if(id_ex_pipeline.atu == 0){
+        switch(id_ex_pipeline.opcode) {
+            case 1:
+                add(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.R3);
+                break;
+            case 2:
+                sub(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.R3);
+                break;
+            case 3:
+                mulI(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 4:
+                addI(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 5:
+                bne(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 6:
+                ANDI(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 7:
+                ORI(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 8:
+                J(id_ex_pipeline.address);
+                break;
+            case 9:
+                SLL(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.shamt);
+                break;
+            case 10:
+                SRL(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.shamt);
+                break;
+            case 11:
+                LW(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;
+            case 12:
+                SW(id_ex_pipeline.R1,id_ex_pipeline.R2,id_ex_pipeline.immediate);
+                break;    
+            ex_mem_pipeline.atu = 2;
+            ex_mem_pipeline.instruction_id = id_ex_pipeline.instruction_id;
+        }
+    }
+    else{
+        id_ex_pipeline.atu--;
+        // printf("Instruction %id :  didn't execute");
+    
+    }
+}
 
+void instructionMemoryAccess(){
+    if(ex_mem_pipeline.atu == 0){
+        if(ex_mem_pipeline.memoryWrite == 1){
+            memory[ex_mem_pipeline.memory_address] = ex_mem_pipeline.memory_data;
+        }
+        // else if(ex_mem_pipeline.registerWrite == 1){
+        //     registers[ex_mem_pipeline.register_address] = ex_mem_pipeline.register_data;
+        // }
+        mem_wb_pipeline.register_address = ex_mem_pipeline.register_address;
+        mem_wb_pipeline.register_data = ex_mem_pipeline.register_data;
+        mem_wb_pipeline.registerWrite = ex_mem_pipeline.registerWrite;
+
+        mem_wb_pipeline.atu = 1;
+        mem_wb_pipeline.instruction_id = ex_mem_pipeline.instruction_id;
+    }
+    else{
+        ex_mem_pipeline.atu--;
+        // printf("Instruction %id :  didn't execute");
+    }
+}
+
+void instructionRegisterWriteBack(){
+    if(mem_wb_pipeline.atu == 0){
+        if(mem_wb_pipeline.registerWrite == 1){
+            registers[mem_wb_pipeline.register_address] = mem_wb_pipeline.register_data;
+        }
+
+        // mem_wb_pipeline.atu = 1;
+        // mem_wb_pipeline.instruction_id = ex_mem_pipeline.instruction_id;
+    }
+    else{
+        mem_wb_pipeline.atu--;
+        // printf("Instruction %id :  didn't execute");
     }
 }
 
 
-
 int main(){
     init();
-    registers[2] = 5;
-    registers[3] = 6;
-    instructionFetch();
-    // int s = -1;
+    // instructionFetch();
+    // instructionDecode();
+    // instructionExecute();
+    // instructionMemoryAccess();
+    // instructionRegisterWriteBack();
+
+
+
+
+
+    // registers[2] = 5;
+    // registers[3] = 6;
+    // instructionFetch();
+    // int s = 3;
     // int shamt = 3;
 
     // s = s >> shamt;
     // printf("%i\n" , s);
     // int bitMsk = 0;
     // int i;
-    // for(i = 0 ; i< 32-shamt ; i++){
+    // for(i = 0 ; i< shamt ; i++){
     //     bitMsk = bitMsk | 1 << i;
     // }
     // s = s & bitMsk;
