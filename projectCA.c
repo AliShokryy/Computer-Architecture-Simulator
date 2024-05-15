@@ -121,8 +121,8 @@ char **split_string(const char *str, int *num_words)
 int memory[2048];
 /*
     31 GPRs
-    1-31 => GPRs
     0 => Zero Register
+    1-31 => GPRs
     32 => Program Counter
 */
 int registers[33];
@@ -144,7 +144,11 @@ struct IF_ID
     int instruction;
     int atu;
 
+    int prev_instruction;
+
+
     unsigned int instruction_id;
+    unsigned int prev_instruction_id;
 };
 
 struct ID_EX
@@ -172,6 +176,7 @@ struct ID_EX
     int atu;
 
     unsigned int instruction_id;
+    unsigned int prev_instruction_id;
 };
 
 struct EX_MEM
@@ -197,6 +202,8 @@ struct EX_MEM
     int atu;
 
     unsigned int instruction_id;
+    unsigned int prev_instruction_id;
+
 };
 
 struct MEM_WB
@@ -205,13 +212,17 @@ struct MEM_WB
     int register_data;
     int registerWrite;
 
+
     unsigned int prev_register_address;
     int prev_register_data;
     int prev_registerWrite;
 
+
     int atu;
 
     unsigned int instruction_id;
+    unsigned int prev_instruction_id;
+
 };
 
 struct IF_ID if_id_pipeline;
@@ -622,13 +633,11 @@ struct ALU_out ALU(int opcode, int operandA, int operandB)
     // return output;
 }
 
-void
-instructionFetch()
+void instructionFetch()
 {
 
     if (clockCycleCount % 2 == 1)
     {
-
         if (instructionCount > 0)
         {
             printf("Fetching instruction: %d\n", registers[32]);
@@ -652,17 +661,23 @@ instructionFetch()
 void instructionDecode()
 {
     printf("Decode found if_id = %d\n", if_id_pipeline.atu);
-    if (if_id_pipeline.atu == 0)
-    {
-        printf("Instruction %d: Decoding\n", if_id_pipeline.instruction_id);
-        printf("Instruction: %d\n", if_id_pipeline.instruction);
-        int instruction = if_id_pipeline.instruction;
+    if (if_id_pipeline.atu == 0 )
+    {   
+        printf("Instruction %d: Decoding\n", if_id_pipeline.prev_instruction_id);
+        printf("Instruction: %d\n", if_id_pipeline.prev_instruction);
+        int instruction = if_id_pipeline.prev_instruction;
         id_ex_pipeline.opcode = (instruction >> 28) & 0b00000000000000000000000000001111;
         id_ex_pipeline.R1_address = (instruction >> 23) & 0b00000000000000000000000000011111;
         id_ex_pipeline.R2_address = (instruction >> 18) & 0b00000000000000000000000000011111;
         id_ex_pipeline.R3_address = (instruction >> 13) & 0b00000000000000000000000000011111;
-        id_ex_pipeline.R2_value = registers[id_ex_pipeline.R2_address];
-        id_ex_pipeline.R3_value = registers[id_ex_pipeline.R3_address];
+        if(id_ex_pipeline.opcode == 4){
+            id_ex_pipeline.R2_value = registers[id_ex_pipeline.R1_address];
+            id_ex_pipeline.R3_value = registers[id_ex_pipeline.R2_address];
+        }
+        else{
+            id_ex_pipeline.R2_value = registers[id_ex_pipeline.R2_address];
+            id_ex_pipeline.R3_value = registers[id_ex_pipeline.R3_address];
+        }
         id_ex_pipeline.shamt = instruction & 0b00000000000000000001111111111111;
         printf("Shamt = %d\n", id_ex_pipeline.shamt);
         id_ex_pipeline.immediate = instruction & 0b00000000000000111111111111111111;
@@ -674,7 +689,7 @@ void instructionDecode()
         printf("Immediate = %d\n", id_ex_pipeline.immediate);
         id_ex_pipeline.address = instruction & 0b00001111111111111111111111111111;
 
-        id_ex_pipeline.instruction_id = if_id_pipeline.instruction_id;
+        id_ex_pipeline.instruction_id = if_id_pipeline.prev_instruction_id;
 
         // id_ex_pipeline.atu = 2;
         printf("Instruction %d decoded\n opcode = %d, R1 = %d, R2 = %d, R3 = %d, shamt = %d, immediate = %d, address = %d, R2_value = %d, R3_value = %d \n", id_ex_pipeline.instruction_id, id_ex_pipeline.opcode, id_ex_pipeline.R1_address, id_ex_pipeline.R2_address, id_ex_pipeline.R3_address, id_ex_pipeline.shamt, id_ex_pipeline.immediate, id_ex_pipeline.address, id_ex_pipeline.R2_value, id_ex_pipeline.R3_value);
@@ -685,7 +700,7 @@ void instructionDecode()
             id_ex_pipeline.atu = 1; // initial condition
         if (clockCycleCount % 2 == 1 && clockCycleCount > 2)
         {
-            printf("Instruction %d: Still Decoding\n", (if_id_pipeline.instruction_id - 1));
+            printf("Instruction %d: Still Decoding\n", (if_id_pipeline.prev_instruction_id));
         }
         else
         {
@@ -701,8 +716,8 @@ void instructionExecute()
     printf("idex %d \n", id_ex_pipeline.atu);
     if (id_ex_pipeline.atu == 0)
     {
-        printf("Instruction %d: Executing\n", id_ex_pipeline.instruction_id);
-        switch (id_ex_pipeline.opcode)
+        printf("Instruction %d: Executing\n", id_ex_pipeline.prev_instruction_id);
+        switch (id_ex_pipeline.prev_opcode)
         {
         case 0:
             add();
@@ -750,7 +765,7 @@ void instructionExecute()
             ex_mem_pipeline.atu = 1;
         if (clockCycleCount % 2 == 1 && id_ex_pipeline.atu == 1 && clockCycleCount > 4)
         {
-            printf("Instruction %d: Still Executing\n", (id_ex_pipeline.instruction_id - 1));
+            printf("Instruction %d: Still Executing\n", (id_ex_pipeline.prev_instruction_id - 1));
         }
         else
         {
@@ -765,7 +780,7 @@ void instructionMemoryAccess()
     printf("exmem atu %d\n", ex_mem_pipeline.atu);
     if (ex_mem_pipeline.atu == 0)
     {
-        printf("Instruction %d: Memory Access\n", ex_mem_pipeline.instruction_id);
+        printf("Instruction %d: Memory Access\n", ex_mem_pipeline.prev_instruction_id);
         if (ex_mem_pipeline.prev_memoryWrite == 1)
         {
             memory[ex_mem_pipeline.prev_memory_address] = ex_mem_pipeline.prev_memory_data;
@@ -774,12 +789,12 @@ void instructionMemoryAccess()
         {
             ex_mem_pipeline.prev_register_data = memory[ex_mem_pipeline.prev_memory_address];
         }
-        mem_wb_pipeline.prev_register_address = ex_mem_pipeline.prev_register_address;
-        mem_wb_pipeline.prev_registerWrite = ex_mem_pipeline.prev_registerWrite;
-        mem_wb_pipeline.prev_register_data = ex_mem_pipeline.prev_register_data;
+        mem_wb_pipeline.register_address = ex_mem_pipeline.prev_register_address;
+        mem_wb_pipeline.registerWrite = ex_mem_pipeline.prev_registerWrite;
+        mem_wb_pipeline.register_data = ex_mem_pipeline.prev_register_data;
 
         mem_wb_pipeline.atu = 1;
-        mem_wb_pipeline.instruction_id = ex_mem_pipeline.instruction_id;
+        mem_wb_pipeline.instruction_id = ex_mem_pipeline.prev_instruction_id;
     }
     else
     {
@@ -793,7 +808,7 @@ void instructionRegisterWriteBack()
 
     if (mem_wb_pipeline.atu == 0)
     {
-        printf("Instruction %d: Writing Back in Register %d\n", mem_wb_pipeline.instruction_id, mem_wb_pipeline.register_address);
+        printf("Instruction %d: Writing Back in Register %d\n", mem_wb_pipeline.prev_instruction_id, mem_wb_pipeline.prev_register_address);
         printf("Register Data = %d\n", mem_wb_pipeline.prev_register_data);
         printf("Register Write = %d\n", mem_wb_pipeline.prev_registerWrite);
         if (mem_wb_pipeline.prev_registerWrite == 1)
@@ -811,19 +826,9 @@ void instructionRegisterWriteBack()
 
 void switchPrevNew()
 {
-    ex_mem_pipeline.prev_memory_address = ex_mem_pipeline.memory_address;
-    ex_mem_pipeline.prev_memory_data = ex_mem_pipeline.memory_data;
-    ex_mem_pipeline
-        .prev_memoryRead = ex_mem_pipeline.memoryRead;
-    ex_mem_pipeline.prev_memoryWrite = ex_mem_pipeline.memoryWrite;
-    ex_mem_pipeline.prev_register_address = ex_mem_pipeline.register_address;
-    ex_mem_pipeline.prev_register_data = ex_mem_pipeline.register_data;
-    ex_mem_pipeline.prev_registerWrite = ex_mem_pipeline.registerWrite;
-
-    mem_wb_pipeline.prev_register_address = mem_wb_pipeline.register_address;
-    mem_wb_pipeline.prev_register_data = mem_wb_pipeline.register_data;
-    mem_wb_pipeline.prev_registerWrite = mem_wb_pipeline.registerWrite;
-
+    if_id_pipeline.prev_instruction = if_id_pipeline.instruction;
+    if_id_pipeline.prev_instruction_id = if_id_pipeline.instruction_id;
+    
     id_ex_pipeline.prev_opcode = id_ex_pipeline.opcode;
     id_ex_pipeline.prev_R1_address = id_ex_pipeline.R1_address;
     id_ex_pipeline.prev_R2_address = id_ex_pipeline.R2_address;
@@ -833,7 +838,21 @@ void switchPrevNew()
     id_ex_pipeline.prev_shamt = id_ex_pipeline.shamt;
     id_ex_pipeline.prev_immediate = id_ex_pipeline.immediate;
     id_ex_pipeline.prev_address = id_ex_pipeline.address;
+    id_ex_pipeline.prev_instruction_id = id_ex_pipeline.instruction_id;
 
+    ex_mem_pipeline.prev_register_address = ex_mem_pipeline.register_address;
+    ex_mem_pipeline.prev_register_data = ex_mem_pipeline.register_data;
+    ex_mem_pipeline.prev_registerWrite = ex_mem_pipeline.registerWrite;
+    ex_mem_pipeline.prev_memory_address = ex_mem_pipeline.memory_address;
+    ex_mem_pipeline.prev_memory_data = ex_mem_pipeline.memory_data;
+    ex_mem_pipeline.prev_memoryWrite = ex_mem_pipeline.memoryWrite;
+    ex_mem_pipeline.prev_memoryRead = ex_mem_pipeline.memoryRead;
+    ex_mem_pipeline.prev_instruction_id = ex_mem_pipeline.instruction_id;
+
+    mem_wb_pipeline.prev_register_address = mem_wb_pipeline.register_address;
+    mem_wb_pipeline.prev_register_data = mem_wb_pipeline.register_data;
+    mem_wb_pipeline.prev_registerWrite = mem_wb_pipeline.registerWrite;
+    mem_wb_pipeline.prev_instruction_id = mem_wb_pipeline.instruction_id;
 }
 
 int main()
