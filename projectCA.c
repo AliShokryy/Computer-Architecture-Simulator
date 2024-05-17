@@ -226,6 +226,7 @@ struct EX_MEM ex_mem_pipeline;
 struct MEM_WB mem_wb_pipeline;
 
 int pcChange = 0;
+int terminate = 0;
 
 void init()
 {
@@ -601,7 +602,7 @@ int clockCycleAdd = 0;
 void instructionFetch()
 {
 
-    if(noMoreFetch == 0){
+    if(noMoreFetch == 0 && terminate == 0){
         if (clockCycleCount % 2 == 1)
         {
             if (if_id_pipeline.instruction_id < instructionCount)
@@ -633,7 +634,7 @@ void instructionFetch()
 
 void instructionDecode()
 {
-    if(noMoreDecode == 0){
+    if(noMoreDecode == 0 && terminate == 0){
         if (if_id_pipeline.atu == 0 )
         {   
             printf("Instruction %d: Decoding\n", if_id_pipeline.prev_instruction_id+1);
@@ -699,13 +700,13 @@ void handleDataHazard(){
         if(id_ex_pipeline.prev_R1_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
         }
-        else if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = ex_mem_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R1_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = mem_wb_pipeline.prev_register_data;
         }
-        else if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = mem_wb_pipeline.prev_register_data;
         }
     }
@@ -713,13 +714,13 @@ void handleDataHazard(){
         if(id_ex_pipeline.prev_R3_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
         }
-        else if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = ex_mem_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R3_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_register_address!= ex_mem_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = mem_wb_pipeline.prev_register_data;
         }
-        else if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_register_address!= ex_mem_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_register_address!= ex_mem_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = mem_wb_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R1_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1 && id_ex_pipeline.prev_opcode==11){
@@ -734,7 +735,7 @@ void handleDataHazard(){
 
 void instructionExecute()
 {
-    if(noMoreExecute == 0)
+    if(noMoreExecute == 0 && terminate == 0)
     {
         if (id_ex_pipeline.atu == 0)
         {
@@ -821,6 +822,10 @@ void instructionExecute()
                     id_ex_pipeline.prev_shamt = 0;
                     id_ex_pipeline.prev_immediate = 0;
                     id_ex_pipeline.prev_address = 0;
+
+                    if(registers[32] >= instructionCount){
+                        terminate = 1;
+                    }
                 }
             }
             else
@@ -888,7 +893,7 @@ void instructionRegisterWriteBack()
                 printf("Instruction %d: Writing Back %d in Register %d\n", mem_wb_pipeline.prev_instruction_id+1,mem_wb_pipeline.prev_register_data ,mem_wb_pipeline.prev_register_address);
                 registers[mem_wb_pipeline.prev_register_address] = mem_wb_pipeline.prev_register_data;
             }
-            if(mem_wb_pipeline.prev_instruction_id == instructionCount - 1){
+            if(mem_wb_pipeline.prev_instruction_id == instructionCount - 1 || terminate==1){
                 noMoreWriteBack = 1;
             }
             if(pcChange == 1){
@@ -943,7 +948,7 @@ void printMemoryAndRegisters() {
     int i,j;
     printf("--------------------\n");
     printf("Instruction Memory:\n");
-    for (i = 0; i < 1024; i+=10) {
+    for (i = 0; i < 10; i+=10) {
         for (j = 0; j < 10; j++) {
             if(i+j == 1024) break;
             printf("Cell %d: %d ", i+j ,memory[i + j]);
@@ -952,7 +957,7 @@ void printMemoryAndRegisters() {
     }
 
     printf("\nData Memory:\n");
-    for (i = 1024; i < 2048; i+=10) {
+    for (i = 1024; i < 1034; i+=10) {
         for (j = 0; j < 10; j++) {
             if(i+j == 2048) break;
             printf("Cell %d: %d ", i+j ,memory[i + j]);
@@ -961,7 +966,7 @@ void printMemoryAndRegisters() {
     }
 
     printf("\nRegister File:\n");
-    for (i = 0; i < 32; i+=5) {
+    for (i = 0; i < 10; i+=5) {
         for (j = 0; j < 5; j++) {
             if(i+j == 32) break;
             if(i+j == 0){
