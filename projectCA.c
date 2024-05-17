@@ -695,7 +695,7 @@ void instructionDecode()
 
 void handleDataHazard(){
 
-    if(id_ex_pipeline.opcode == 4)
+    if(id_ex_pipeline.prev_opcode == 4)
     {
         if(id_ex_pipeline.prev_R1_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = mem_wb_pipeline.prev_register_data;
