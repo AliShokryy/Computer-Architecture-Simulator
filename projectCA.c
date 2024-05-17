@@ -697,31 +697,31 @@ void handleDataHazard(){
 
     if(id_ex_pipeline.opcode == 4)
     {
-        if(id_ex_pipeline.prev_R1_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
-            id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
-        }
-        if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
-            id_ex_pipeline.prev_R2_value = ex_mem_pipeline.prev_register_data;
-        }
         if(id_ex_pipeline.prev_R1_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = mem_wb_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = mem_wb_pipeline.prev_register_data;
         }
-    }
-    else{
-        if(id_ex_pipeline.prev_R3_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R1_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = ex_mem_pipeline.prev_register_data;
         }
-        if(id_ex_pipeline.prev_R3_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_register_address!= ex_mem_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
+    }
+    else{
+        if(id_ex_pipeline.prev_R3_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R3_value = mem_wb_pipeline.prev_register_data;
         }
-        if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_register_address!= ex_mem_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
+        if(id_ex_pipeline.prev_R2_address == mem_wb_pipeline.prev_register_address && mem_wb_pipeline.prev_registerWrite == 1){
             id_ex_pipeline.prev_R2_value = mem_wb_pipeline.prev_register_data;
+        }
+        if(id_ex_pipeline.prev_R3_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
+            id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
+        }
+        if(id_ex_pipeline.prev_R2_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1){
+            id_ex_pipeline.prev_R2_value = ex_mem_pipeline.prev_register_data;
         }
         if(id_ex_pipeline.prev_R1_address == ex_mem_pipeline.prev_register_address && ex_mem_pipeline.prev_registerWrite == 1 && id_ex_pipeline.prev_opcode==11){
             id_ex_pipeline.prev_R3_value = ex_mem_pipeline.prev_register_data;
